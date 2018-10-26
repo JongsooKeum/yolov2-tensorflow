@@ -79,3 +79,87 @@ def cal_recall(gt_bboxes, bboxes, iou_thres=0.5):
             if np.max(area) > iou_thres and predicted_class[idx] == gt_c:
                 tp += 1
     return tp / p
+
+def _cal_overlap(a, b):
+    area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
+
+    iw = np.minimum(np.expand_dims(a[:, 2], axis=1), b[:, 2]) - \
+        np.maximum(np.expand_dims(a[:, 0], axis=1), b[:, 0])
+    ih = np.minimum(np.expand_dims(a[:, 3], axis=1), b[:, 3]) - \
+        np.maximum(np.expand_dims(a[:, 1], axis=1), b[:, 1])
+
+    iw = np.maximum(iw, 0)
+    ih = np.maximum(ih, 0)
+    intersection = iw * ih
+
+    ua = np.expand_dims((a[:, 2] - a[:, 0]) *
+                        (a[:, 3] - a[:, 1]), axis=1) + area - intersection
+
+    ua = np.maximum(ua, np.finfo(float).eps)
+
+    return intersection / ua
+
+def maybe_mkdir(*directories):
+    for d in directories:
+        if not osp.isdir(d):
+            os.mkdir(d)
+
+def iou(b1, b2):
+    l1, l2 = b1[0] - int(0.5 * b1[2]), b2[0] - int(0.5 * b2[2])
+    u1, u2 = l1 + b1[2] - 1, l2 + b2[2] - 1
+    intersection_w = max(0, min(u1, u2) - max(l1, l2) + 1)
+    if intersection_w == 0:
+        return 0
+    l1, l2 = b1[1] - int(0.5 * b1[3]), b2[1] - int(0.5 * b2[3])
+    u1, u2 = l1 + b1[3] - 1, l2 + b2[3] - 1
+    intersection_h = max(0, min(u1, u2) - max(l1, l2) + 1)
+    intersection = intersection_w * intersection_h
+    if intersection == 0:
+        return 0
+
+    union = b1[2] * b1[3] + b2[2] * b2[3] - intersection
+    if union == 0:
+        raise ValueError('Union value must not be a zero or negative number. (boxes: {}, {})'.format(b1, b2))
+
+    return intersection / union
+
+def kmeans_iou(boxes, k, n_iter=10):
+    n_boxes = len(boxes)
+    if k > n_boxes:
+        raise ValueError('k({}) must be less than or equal to the number of boxes({}).'.format(k, n_boxes))
+
+    # Update clusters and centroids alternately.
+    centroids = boxes[np.random.choice(n_boxes, k, replace=False)]
+    for _ in range(n_iter):
+        cluster_indices = np.array([np.argmax([iou(b, c) for c in centroids]) for b in boxes])
+        for i in range(k):
+            if np.count_nonzero(cluster_indices == i) == 0:
+                print(i)
+        centroids = [np.mean(boxes[cluster_indices == i], axis=0) for i in range(k)]
+
+    return np.array(centroids)
+
+def calculate_anchor_boxes(im_paths, anno_dir, num_anchors):
+    boxes = []
+
+    for im_path in im_paths:
+        im_h, im_w = scipy.misc.imread(im_path).shape[:2]
+
+        anno_fname = '{}.anno'.format(osp.splitext(osp.basename(im_path))[0])
+        anno_fpath = osp.join(anno_dir, anno_fname)
+        if not osp.isfile(anno_fpath):
+            print('ERROR | Corresponding annotation file is not found: {}'.format(anno_fpath))
+            return
+
+        with open(anno_fpath, 'r') as f:
+            anno = json.load(f)
+        for class_name in anno:
+            for x_min, y_min, x_max, y_max in anno[class_name]:
+                center_x, center_y = (x_max + x_min) * 0.5, (y_max + y_min) * 0.5
+                width, height = x_max - x_min + 1, y_max - y_min + 1
+                boxes.append([center_x, center_y, width, height])
+
+    boxes = np.array(boxes, dtype=np.float32)
+    anchors = kmeans_iou(boxes, num_anchors, 10)[:, 2:]
+
+    return np.array(anchors)

@@ -23,7 +23,7 @@ class Evaluator(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def score(self, y_true, y_pred):
+    def score(self, y_true, y_pred, model):
         """
         Performance metric for a given prediction.
         This should be implemented.
@@ -57,7 +57,7 @@ class RecallEvaluator(Evaluator):
         """The mode for performance score."""
         return 'max'
 
-    def score(self, y_true, y_pred, **kwargs):
+    def score(self, y_true, y_pred, model, **kwargs):
         """Compute Recall for a given predicted bboxes"""
         nms_flag = kwargs.pop('nms_flag', True)
         if nms_flag:
