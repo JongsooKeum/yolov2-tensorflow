@@ -10,6 +10,6 @@ opencv-python==3.3.0.10
 tensorflow-gpu == 1.10.1
 ```
 
-toy dataset: [FDDB](http://vis-www.cs.umass.edu/fddb/)
+toy dataset: [FDDB: Face Detection Data Set and Benchmark(FDDB)](http://vis-www.cs.umass.edu/fddb/)
 
 ellipsis_to_rectangle.py script helps to make annotations file for detection
