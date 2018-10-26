@@ -1,5 +1,5 @@
 # tf-yolov2
-Object-detection-tutorials with YOLOv2
+Object-detection-tutorials with YOLOv2 (tensorflow)
 
 ## Requirements
 Python 3.5
