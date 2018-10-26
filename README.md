@@ -1,4 +1,4 @@
-# tf-yolov2
+# yolov2-tensorflow
 Object-detection-tutorials with YOLOv2 (tensorflow)
 
 ## Requirements
