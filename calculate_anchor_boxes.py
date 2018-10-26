@@ -1,5 +1,5 @@
 from learning.utils import calculate_anchor_boxes, maybe_mkdir
-import os.path as osp
+import os
 import argparse
 import glob
 import json
@@ -25,18 +25,18 @@ def _parse_args():
 
 
 def _main(cfg):
-    im_dir = osp.join(cfg.ds_dir, IM_SUBDIR)
-    anno_dir = osp.join(cfg.ds_dir, ANNO_SUBDIR)
-    ab_dir = osp.join(cfg.ds_dir, AB_SUBDIR)
-    out_path = osp.join(ab_dir, 'calculated_{}.json'.format(cfg.num_ab))
-    if osp.isfile(out_path):
+    im_dir = os.path.join(cfg.ds_dir, IM_SUBDIR)
+    anno_dir = os.path.join(cfg.ds_dir, ANNO_SUBDIR)
+    ab_dir = os.path.join(cfg.ds_dir, AB_SUBDIR)
+    out_path = os.path.join(ab_dir, 'calculated_{}.json'.format(cfg.num_ab))
+    if os.path.isfile(out_path):
         print('File named {} already exists.'.format(out_path))
         exit()
 
     maybe_mkdir(ab_dir)
 
     # Get list of data samples. (Sorted by name)
-    im_paths = glob.glob(osp.join(im_dir, cfg.pattern))
+    im_paths = glob.glob(os.path.join(im_dir, cfg.pattern))
     num_images = len(im_paths)
     print('Num images found: {}'.format(num_images))
     if num_images <= 0:

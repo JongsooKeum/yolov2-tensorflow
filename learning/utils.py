@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import cv2
+import json
 
 def nms(boxes, conf_thres=0.2, iou_thres=0.5):
     x1 = boxes[..., 0]
@@ -101,7 +102,7 @@ def _cal_overlap(a, b):
 
 def maybe_mkdir(*directories):
     for d in directories:
-        if not osp.isdir(d):
+        if not os.path.isdir(d):
             os.mkdir(d)
 
 def iou(b1, b2):
@@ -143,11 +144,11 @@ def calculate_anchor_boxes(im_paths, anno_dir, num_anchors):
     boxes = []
 
     for im_path in im_paths:
-        im_h, im_w = scipy.misc.imread(im_path).shape[:2]
+        im_h, im_w = cv2.imread(im_path).shape[:2]
 
-        anno_fname = '{}.anno'.format(osp.splitext(osp.basename(im_path))[0])
-        anno_fpath = osp.join(anno_dir, anno_fname)
-        if not osp.isfile(anno_fpath):
+        anno_fname = '{}.anno'.format(os.path.splitext(os.path.basename(im_path))[0])
+        anno_fpath = os.path.join(anno_dir, anno_fname)
+        if not os.path.isfile(anno_fpath):
             print('ERROR | Corresponding annotation file is not found: {}'.format(anno_fpath))
             return
 
