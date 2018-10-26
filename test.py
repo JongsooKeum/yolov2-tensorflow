@@ -40,7 +40,7 @@ saver = tf.train.Saver()
 sess = tf.Session(graph=graph, config=config)
 saver.restore(sess, './model.ckpt')
 test_y_pred = model.predict(sess, test_set, **hp_d)
-test_score = evaluator.score(test_set.labels, test_y_pred)
+test_score = evaluator.score(test_set.labels, test_y_pred, model)
 
 print('Test performance: {}'.format(test_score))
 
