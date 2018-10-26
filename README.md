@@ -1,10 +1,6 @@
 # tf-yolov2
 Object-detection-tutorials with YOLOv2
 
-# Contributor
-- Jongho Park
-- Jongsoo Keum
-
 ## Requirements
 Python 3.5
 ```
