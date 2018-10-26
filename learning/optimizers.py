@@ -147,14 +147,15 @@ class Optimizer(metaclass=ABCMeta):
                               .format(self.curr_epoch, step_loss, step_score, self.curr_learning_rate))
 
                     curr_score = step_score
+                if self.evaluator.is_better(curr_score, self.bset_score, **kwargs):
+                    self.best_score = curr_score
+                    saver.save(sess, os.path.join(save_dir, 'model.ckpt'))
 
                 # Keep track of the current best model,
                 # by comparing current score and the best score
             if (i+1) % num_steps_per_epoch == 0:
                 if self.evaluator.is_better(curr_score, self.best_score, **kwargs):
-                    self.best_score = curr_score
                     self.num_bad_epochs = 0
-                    saver.save(sess, os.path.join(save_dir, 'model.ckpt'))
                 else:
                     self.num_bad_epochs += 1
 
