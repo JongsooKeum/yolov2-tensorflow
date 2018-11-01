@@ -189,74 +189,75 @@ class YOLO(DetectNet):
         loss_weights = kwargs.pop('loss_weights', [5, 5, 5, 0.5, 1.0])
         # DEBUG
         # loss_weights = kwargs.pop('loss_weights', [1.0, 1.0, 1.0, 1.0, 1.0])
-        grid_h, grid_w = self.grid_size
-        num_classes = self.num_classes
-        anchors = self.anchors
-        grid_wh = np.reshape([grid_w, grid_h], [
-                             1, 1, 1, 1, 2]).astype(np.float32)
-        cxcy = np.transpose([np.tile(np.arange(grid_w), grid_h),
-                             np.repeat(np.arange(grid_h), grid_w)])
-        cxcy = np.reshape(cxcy, (1, grid_h, grid_w, 1, 2))
+        with tf.variable_scope('losses'):
+            grid_h, grid_w = self.grid_size
+            num_classes = self.num_classes
+            anchors = self.anchors
+            grid_wh = np.reshape([grid_w, grid_h], [
+                                 1, 1, 1, 1, 2]).astype(np.float32)
+            cxcy = np.transpose([np.tile(np.arange(grid_w), grid_h),
+                                 np.repeat(np.arange(grid_h), grid_w)])
+            cxcy = np.reshape(cxcy, (1, grid_h, grid_w, 1, 2))
 
-        txty, twth = self.pred[..., 0:2], self.pred[..., 2:4]
-        confidence = tf.sigmoid(self.pred[..., 4:5])
-        class_probs = tf.nn.softmax(
-            self.pred[..., 5:], axis=-1) if num_classes > 1 else tf.sigmoid(self.pred[..., 5:])
-        bxby = tf.sigmoid(txty) + cxcy
-        pwph = np.reshape(anchors, (1, 1, 1, self.num_anchors, 2)) / 32
-        bwbh = tf.exp(twth) * pwph
+            txty, twth = self.pred[..., 0:2], self.pred[..., 2:4]
+            confidence = tf.sigmoid(self.pred[..., 4:5])
+            class_probs = tf.nn.softmax(
+                self.pred[..., 5:], axis=-1) if num_classes > 1 else tf.sigmoid(self.pred[..., 5:])
+            bxby = tf.sigmoid(txty) + cxcy
+            pwph = np.reshape(anchors, (1, 1, 1, self.num_anchors, 2)) / 32
+            bwbh = tf.exp(twth) * pwph
 
-        # calculating for prediction
-        nxny, nwnh = bxby / grid_wh, bwbh / grid_wh
-        nx1ny1, nx2ny2 = nxny - 0.5 * nwnh, nxny + 0.5 * nwnh
-        self.pred_y = tf.concat(
-            (nx1ny1, nx2ny2, confidence, class_probs), axis=-1)
+            # calculating for prediction
+            nxny, nwnh = bxby / grid_wh, bwbh / grid_wh
+            nx1ny1, nx2ny2 = nxny - 0.5 * nwnh, nxny + 0.5 * nwnh
+            self.pred_y = tf.concat(
+                (nx1ny1, nx2ny2, confidence, class_probs), axis=-1)
 
-        # calculating IoU for metric
-        num_objects = tf.reduce_sum(self.y[..., 4:5], axis=[1, 2, 3, 4])
-        max_nx1ny1 = tf.maximum(self.y[..., 0:2], nx1ny1)
-        min_nx2ny2 = tf.minimum(self.y[..., 2:4], nx2ny2)
-        intersect_wh = tf.maximum(min_nx2ny2 - max_nx1ny1, 0.0)
-        intersect_area = tf.reduce_prod(intersect_wh, axis=-1)
-        intersect_area = tf.where(
-            tf.equal(intersect_area, 0.0), tf.zeros_like(intersect_area), intersect_area)
-        gt_box_area = tf.reduce_prod(
-            self.y[..., 2:4] - self.y[..., 0:2], axis=-1)
-        box_area = tf.reduce_prod(nx2ny2 - nx1ny1, axis=-1)
-        iou = tf.truediv(
-            intersect_area, (gt_box_area + box_area - intersect_area))
-        sum_iou = tf.reduce_sum(iou, axis=[1, 2, 3])
-        self.iou = tf.truediv(sum_iou, num_objects)
+            # calculating IoU for metric
+            num_objects = tf.reduce_sum(self.y[..., 4:5], axis=[1, 2, 3, 4])
+            max_nx1ny1 = tf.maximum(self.y[..., 0:2], nx1ny1)
+            min_nx2ny2 = tf.minimum(self.y[..., 2:4], nx2ny2)
+            intersect_wh = tf.maximum(min_nx2ny2 - max_nx1ny1, 0.0)
+            intersect_area = tf.reduce_prod(intersect_wh, axis=-1)
+            intersect_area = tf.where(
+                tf.equal(intersect_area, 0.0), tf.zeros_like(intersect_area), intersect_area)
+            gt_box_area = tf.reduce_prod(
+                self.y[..., 2:4] - self.y[..., 0:2], axis=-1)
+            box_area = tf.reduce_prod(nx2ny2 - nx1ny1, axis=-1)
+            iou = tf.truediv(
+                intersect_area, (gt_box_area + box_area - intersect_area))
+            sum_iou = tf.reduce_sum(iou, axis=[1, 2, 3])
+            self.iou = tf.truediv(sum_iou, num_objects)
 
-        gt_bxby = 0.5 * (self.y[..., 0:2] + self.y[..., 2:4]) * grid_wh
-        gt_bwbh = (self.y[..., 2:4] - self.y[..., 0:2]) * grid_wh
+            gt_bxby = 0.5 * (self.y[..., 0:2] + self.y[..., 2:4]) * grid_wh
+            gt_bwbh = (self.y[..., 2:4] - self.y[..., 0:2]) * grid_wh
 
-        resp_mask = self.y[..., 4:5]
-        no_resp_mask = 1.0 - resp_mask
-        # gt_confidence = resp_mask * tf.expand_dims(iou, axis=-1)
-        gt_confidence = resp_mask
-        gt_class_probs = self.y[..., 5:]
+            resp_mask = self.y[..., 4:5]
+            no_resp_mask = 1.0 - resp_mask
+            # gt_confidence = resp_mask * tf.expand_dims(iou, axis=-1)
+            gt_confidence = resp_mask
+            gt_class_probs = self.y[..., 5:]
 
-        loss_bxby = loss_weights[0] * resp_mask * \
-            tf.square(gt_bxby - bxby)
-        loss_bwbh = loss_weights[1] * resp_mask * \
-            tf.square(tf.sqrt(gt_bwbh) - tf.sqrt(bwbh))
-        loss_resp_conf = loss_weights[2] * resp_mask * \
-            tf.square(gt_confidence - confidence)
-        loss_no_resp_conf = loss_weights[3] * no_resp_mask * \
-            tf.square(gt_confidence - confidence)
-        loss_class_probs = loss_weights[4] * resp_mask * \
-            tf.square(gt_class_probs - class_probs)
+            loss_bxby = loss_weights[0] * resp_mask * \
+                tf.square(gt_bxby - bxby)
+            loss_bwbh = loss_weights[1] * resp_mask * \
+                tf.square(tf.sqrt(gt_bwbh) - tf.sqrt(bwbh))
+            loss_resp_conf = loss_weights[2] * resp_mask * \
+                tf.square(gt_confidence - confidence)
+            loss_no_resp_conf = loss_weights[3] * no_resp_mask * \
+                tf.square(gt_confidence - confidence)
+            loss_class_probs = loss_weights[4] * resp_mask * \
+                tf.square(gt_class_probs - class_probs)
 
-        merged_loss = tf.concat((
-                                loss_bxby,
-                                loss_bwbh,
-                                loss_resp_conf,
-                                loss_no_resp_conf,
-                                loss_class_probs
-                                ),
-                                axis=-1)
-        #self.merged_loss = merged_loss
-        total_loss = tf.reduce_sum(merged_loss, axis=-1)
-        total_loss = tf.reduce_mean(total_loss)
+            merged_loss = tf.concat((
+                                    loss_bxby,
+                                    loss_bwbh,
+                                    loss_resp_conf,
+                                    loss_no_resp_conf,
+                                    loss_class_probs
+                                    ),
+                                    axis=-1)
+            #self.merged_loss = merged_loss
+            total_loss = tf.reduce_sum(merged_loss, axis=-1)
+            total_loss = tf.reduce_mean(total_loss)
         return total_loss
